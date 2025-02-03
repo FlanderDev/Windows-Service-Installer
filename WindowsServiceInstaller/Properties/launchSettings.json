@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "WindowsServiceInstaller": {
+      "commandName": "Project",
+      "commandLineArgs": ""
+    }
+  }
+}
