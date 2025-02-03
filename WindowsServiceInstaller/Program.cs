@@ -3,29 +3,36 @@ using System.Security.Principal;
 using CliWrap;
 using CliWrap.Buffered;
 using CliWrap.Exceptions;
+using Serilog;
 
 try
 {
+    const string template = "{Timestamp:yyyy-MM-dd HH:mm:ss} [{Level:u3}] {Message:lj}{NewLine}{Exception}";
+    Log.Logger = new LoggerConfiguration()
+        .WriteTo.Console(outputTemplate: template)
+        .WriteTo.File("log/log_.log", rollingInterval: RollingInterval.Day, outputTemplate: template)
+        .CreateLogger();
+
     if (!OperatingSystem.IsWindows())
     {
-        Console.WriteLine("This program can only run on a windows operating system.");
+        Log.Warning("This program can only run on a windows operating system.");
         return 901;
     }
 
     if (args.Length > 0 && !File.Exists(args[0]))
     {
-        Console.WriteLine($"The provided file dosen't exist. '{args[0]}'. Aborting.");
+        Log.Warning($"The provided file dosen't exist. '{args[0]}'. Aborting.");
         return 910;
     }
 
     string? userInput;
     if (args.Length < 1)
     {
-        Console.WriteLine("Enter/drop the path of the .exe service and press enter...");
+        Log.Verbose("Enter/drop the path of the .exe service and press enter...");
         userInput = Console.ReadLine() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(userInput))
         {
-            Console.WriteLine("Empty input for file. Aborting.");
+            Log.Warning("Empty input for file. Aborting.");
             return 920;
         }
     }
@@ -36,21 +43,20 @@ try
     var serviceExecutable = new FileInfo(userInput.Trim('"'));
     if (!serviceExecutable.Exists)
     {
-        Console.WriteLine($"File with path '{serviceExecutable}' does not exist. Aborting.");
+        Log.Warning($"File with path '{serviceExecutable}' does not exist. Aborting.");
         return 930;
     }
 
     if (!new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator))
     {
-        Console.WriteLine(
-            "The program was not stared with the required permissions. Do you want to elevate the process? y/n");
+        Log.Verbose("The program was not stared with the required permissions. Do you want to elevate the process? y/n");
         if (args.Length < 2 && Console.ReadLine() is not "y")
             return 931;
 
         var thisFile = Process.GetCurrentProcess().MainModule;
         if (thisFile == null)
         {
-            Console.WriteLine("Could not find the file for this program.");
+            Log.Warning("Could not find the file for this program.");
             return 932;
         }
 
@@ -80,12 +86,12 @@ try
     string? userInputSelection;
     if (args.Length < 2)
     {
-        Console.WriteLine(
+        Log.Verbose(
             $"Type either 'install' or 'uninstall' and press enter, to do the selected action.{Environment.NewLine}Entering anything else will abort the process.");
         userInputSelection = Console.ReadLine();
         if (string.IsNullOrWhiteSpace(userInputSelection))
         {
-            Console.WriteLine($"Invalid selection. Aborting");
+            Log.Warning("Invalid selection. Aborting");
             return 940;
         }
     }
@@ -96,7 +102,7 @@ try
     switch (userInputSelection)
     {
         case "install":
-            Console.WriteLine("Installing service...");
+            Log.Verbose("Installing service...");
             var resultInstall = await Cli.Wrap("sc")
                 .WithArguments([
                     "create", serviceName, $"binPath={serviceExecutable}", $"DisplayName={serviceDisplayName}",
@@ -106,12 +112,11 @@ try
 
             if (!resultInstall.IsSuccess)
             {
-                Console.WriteLine($"Could not install service '{serviceDisplayName}'. Aborting.");
+                Log.Warning($"Could not install service '{serviceDisplayName}'. Aborting.");
                 return 801;
             }
 
-            Console.WriteLine(
-                $"Service '{serviceDisplayName}' has been installed.{Environment.NewLine}Starting service...");
+            Log.Information($"Service '{serviceDisplayName}' has been installed.{Environment.NewLine}Starting service...");
             var resultStart =
                 await Cli.Wrap("sc")
                     .WithArguments(["start", serviceName])
@@ -119,22 +124,22 @@ try
 
             if (!resultStart.IsSuccess)
             {
-                Console.WriteLine($"Could not start service '{serviceDisplayName}'. Aborting.");
+                Log.Warning($"Could not start service '{serviceDisplayName}'. Aborting.");
                 return 802;
             }
 
-            Console.WriteLine($"Service '{serviceDisplayName}' started.");
+            Log.Information($"Service '{serviceDisplayName}' started.");
             break;
 
         case "uninstall":
-            Console.WriteLine($"Uninstalling service '{serviceDisplayName}'...");
+            Log.Information($"Uninstalling service '{serviceDisplayName}'...");
 
             var resultStatus = await Cli.Wrap("sc")
                 .WithArguments(["query", serviceName])
                 .ExecuteBufferedAsync();
             if (!resultStatus.IsSuccess)
             {
-                Console.WriteLine($"Could not QUERY service '{serviceDisplayName}'. Aborting.");
+                Log.Warning($"Could not QUERY service '{serviceDisplayName}'. Aborting.");
                 return 850;
             }
 
@@ -146,7 +151,7 @@ try
 
             if (parsedState == null)
             {
-                Console.WriteLine($"Could not parse the QUERY for service '{serviceDisplayName}'. Aborting.");
+                Log.Error($"Could not parse the QUERY for service '{serviceDisplayName}'. Aborting.");
                 return 851;
             }
 
@@ -158,14 +163,14 @@ try
                 .ExecuteAsync();
                 if (!resultStop.IsSuccess)
                 {
-                    Console.WriteLine($"Could not STOP service '{serviceDisplayName}'. Aborting.");
+                    Log.Warning($"Could not STOP service '{serviceDisplayName}'. Aborting.");
                     return 852;
                 }
-                Console.WriteLine($"Service '{serviceDisplayName}' stopped.");
+                Log.Information($"Service '{serviceDisplayName}' stopped.");
             }
             else if (!parsedState.Equals("STOPPED", StringComparison.OrdinalIgnoreCase)) // handles all but previous and stopped.
             {
-                Console.WriteLine($"Service {serviceDisplayName} STATE is invalid. Cannot stop/uninstall it.");
+                Log.Warning($"Service {serviceDisplayName} STATE is invalid. Cannot stop/uninstall it.");
                 return 853;
             } // TODO: Handle other cases.
 
@@ -176,15 +181,15 @@ try
                     .ExecuteAsync();
             if (!resultDelete.IsSuccess)
             {
-                Console.WriteLine($"Could not DELETE service '{serviceDisplayName}'. Aborting.");
+                Log.Warning($"Could not DELETE service '{serviceDisplayName}'. Aborting.");
                 return 851;
             }
 
-            Console.WriteLine($"Service '{serviceDisplayName}' uninstalled.");
+            Log.Information($"Service '{serviceDisplayName}' uninstalled.");
             break;
 
         default:
-            Console.WriteLine("Invalid selection. Aborting.");
+            Log.Warning("Invalid selection. Aborting.");
             return 890;
     }
 }
@@ -198,12 +203,12 @@ catch (CommandExecutionException ex)
         _ => $"Unexpected command execution error: '{ex.Message}'{Environment.NewLine}Find your exitCode '{ex.ExitCode}' here:{Environment.NewLine}{link}."
     };
 
-    Console.WriteLine(errorText);
+    Log.Error(errorText);
     return 101;
 }
 catch (Exception ex)
 {
-    Console.WriteLine($"Unexpected error: '{ex.Message}'. Aborting.");
+    Log.Fatal($"Unexpected error: '{ex.Message}'. Aborting.");
     return 100;
 }
 
@@ -212,18 +217,21 @@ return 0;
 static void PrintAsciiTable(List<KeyValuePair<string, string>> keyValuePairs)
 {
     if (keyValuePairs.Count == 0)
+    {
+        Log.Warning("No data to display in ASCII-table.");
         return;
+    }
 
     var keyWidth = keyValuePairs.Max(kvp => kvp.Key.Length);
     var valueWidth = keyValuePairs.Max(kvp => kvp.Value.Length);
     var separator = $"+{new string('-', keyWidth + 2)}+{new string('-', valueWidth + 2)}+";
 
-    Console.WriteLine(separator);
-    Console.WriteLine($"| {"Property".PadRight(keyWidth)} | {"Value".PadRight(valueWidth)} |");
-    Console.WriteLine(separator);
+    Log.Verbose(separator);
+    Log.Verbose($"| {"Property".PadRight(keyWidth)} | {"Value".PadRight(valueWidth)} |");
+    Log.Verbose(separator);
 
     foreach (var kvp in keyValuePairs)
-        Console.WriteLine($"| {kvp.Key.PadRight(keyWidth)} | {kvp.Value.PadRight(valueWidth)} |");
+        Log.Verbose($"| {kvp.Key.PadRight(keyWidth)} | {kvp.Value.PadRight(valueWidth)} |");
 
-    Console.WriteLine(separator);
+    Log.Verbose(separator);
 }
