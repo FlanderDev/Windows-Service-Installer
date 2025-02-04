@@ -4,13 +4,15 @@ using CliWrap;
 using CliWrap.Buffered;
 using CliWrap.Exceptions;
 using Serilog;
+using Serilog.Events;
 
 try
 {
     const string template = "{Timestamp:yyyy-MM-dd HH:mm:ss} [{Level:u3}] {Message:lj}{NewLine}{Exception}";
     Log.Logger = new LoggerConfiguration()
+        .MinimumLevel.Verbose()
         .WriteTo.Console(outputTemplate: template)
-        .WriteTo.File("log/log_.log", rollingInterval: RollingInterval.Day, outputTemplate: template)
+        .WriteTo.File("log/log_.log", LogEventLevel.Information, rollingInterval: RollingInterval.Day, outputTemplate: template)
         .CreateLogger();
 
     if (!OperatingSystem.IsWindows())
@@ -79,7 +81,6 @@ try
     PrintAsciiTable([
         new KeyValuePair<string, string>("Service Display Name", serviceDisplayName),
         new KeyValuePair<string, string>("Service Name", serviceName),
-
     ]);
 
 
