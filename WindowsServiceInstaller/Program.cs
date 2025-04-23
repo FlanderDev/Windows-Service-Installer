@@ -1,10 +1,9 @@
 ﻿using System.Diagnostics;
 using System.Security.Principal;
-using CliWrap;
-using CliWrap.Buffered;
 using CliWrap.Exceptions;
 using Serilog;
 using Serilog.Events;
+using WindowsServiceInstaller.Business;
 
 try
 {
@@ -14,6 +13,8 @@ try
         .WriteTo.Console(outputTemplate: template)
         .WriteTo.File("log/log_.log", LogEventLevel.Information, rollingInterval: RollingInterval.Day, outputTemplate: template)
         .CreateLogger();
+
+    Log.Verbose("Arguments:{newLine}{args}", Environment.NewLine, string.Join(Environment.NewLine, args));
 
     if (!OperatingSystem.IsWindows())
     {
@@ -49,10 +50,12 @@ try
         return 930;
     }
 
-    if (!new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator))
+    if (new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator))
+        Log.Verbose("Program started with admin permissions.");
+    else
     {
-        Log.Verbose("The program was not stared with the required permissions. Do you want to elevate the process? y/n");
-        if (args.Length < 2 && Console.ReadLine() is not "y")
+        Log.Verbose("The program was not stared with the required permissions. Do you want to elevate the process? y/N");
+        if (args.Length < 2 && Console.ReadLine()?.ToLower() is not "y")
             return 931;
 
         var thisFile = Process.GetCurrentProcess().MainModule;
@@ -69,6 +72,7 @@ try
             Verb = "runas",
             ArgumentList = { serviceExecutable.FullName, args.Length > 1 ? args[1] : string.Empty }
         });
+        Log.Verbose("Ending entry application.");
         return 933;
     }
 
@@ -103,96 +107,24 @@ try
     switch (userInputSelection)
     {
         case "install":
-            Log.Verbose("Installing service...");
-            var resultInstall = await Cli.Wrap("sc")
-                .WithArguments([
-                    "create", serviceName, $"binPath={serviceExecutable}", $"DisplayName={serviceDisplayName}",
-                    "start=auto"
-                ])
-                .ExecuteAsync();
-
-            if (!resultInstall.IsSuccess)
-            {
-                Log.Warning($"Could not install service '{serviceDisplayName}'. Aborting.");
-                return 801;
-            }
-
-            Log.Information($"Service '{serviceDisplayName}' has been installed.{Environment.NewLine}Starting service...");
-            var resultStart =
-                await Cli.Wrap("sc")
-                    .WithArguments(["start", serviceName])
-                    .ExecuteAsync();
-
-            if (!resultStart.IsSuccess)
-            {
-                Log.Warning($"Could not start service '{serviceDisplayName}'. Aborting.");
-                return 802;
-            }
-
-            Log.Information($"Service '{serviceDisplayName}' started.");
+            Log.Information("Installing service: '{serviceDisplayName}' '{name}' '{path}'.", serviceName, serviceName, serviceExecutable.FullName);
+            await Service.InstallAsync(serviceDisplayName, serviceName, serviceExecutable.FullName);
+            await Service.StartAsync(serviceDisplayName, serviceName);
+            Log.Information("Installed service has been started.");
             break;
 
         case "uninstall":
-            Log.Information($"Uninstalling service '{serviceDisplayName}'...");
-
-            var resultStatus = await Cli.Wrap("sc")
-                .WithArguments(["query", serviceName])
-                .ExecuteBufferedAsync();
-            if (!resultStatus.IsSuccess)
-            {
-                Log.Warning($"Could not QUERY service '{serviceDisplayName}'. Aborting.");
-                return 850;
-            }
-
-            var parsedState = resultStatus.StandardOutput
-                    .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                    .FirstOrDefault(f => f.StartsWith("STATE"))?
-                    .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                    .LastOrDefault();
-
-            if (parsedState == null)
-            {
-                Log.Error($"Could not parse the QUERY for service '{serviceDisplayName}'. Aborting.");
-                return 851;
-            }
-
-            if (parsedState.Equals("RUNNING", StringComparison.OrdinalIgnoreCase)) //stop if running
-            {
-                var resultStop =
-                await Cli.Wrap("sc")
-                .WithArguments(["stop", serviceName])
-                .ExecuteAsync();
-                if (!resultStop.IsSuccess)
-                {
-                    Log.Warning($"Could not STOP service '{serviceDisplayName}'. Aborting.");
-                    return 852;
-                }
-                Log.Information($"Service '{serviceDisplayName}' stopped.");
-            }
-            else if (!parsedState.Equals("STOPPED", StringComparison.OrdinalIgnoreCase)) // handles all but previous and stopped.
-            {
-                Log.Warning($"Service {serviceDisplayName} STATE is invalid. Cannot stop/uninstall it.");
-                return 853;
-            } // TODO: Handle other cases.
-
-
-            var resultDelete =
-                await Cli.Wrap("sc")
-                    .WithArguments(["delete", serviceName])
-                    .ExecuteAsync();
-            if (!resultDelete.IsSuccess)
-            {
-                Log.Warning($"Could not DELETE service '{serviceDisplayName}'. Aborting.");
-                return 851;
-            }
-
-            Log.Information($"Service '{serviceDisplayName}' uninstalled.");
+            Log.Information("Uninstalling service.");
+            await Service.UninstallAsync(serviceDisplayName, serviceName);
             break;
 
         default:
             Log.Warning("Invalid selection. Aborting.");
             return 890;
     }
+
+    Log.Verbose("End of application.");
+    Console.ReadLine();
 }
 catch (CommandExecutionException ex)
 {
