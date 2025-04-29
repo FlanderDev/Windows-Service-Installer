@@ -1,11 +1,10 @@
-﻿using Serilog;
-using System.Diagnostics;
-using System.Security.Principal;
+﻿using FelixLeander.WindowsServiceInstaller.Enum;
 using FelixLeander.WindowsServiceInstaller.Model;
-using FelixLeander.WindowsServiceInstaller.Enum;
 using Microsoft.Extensions.Configuration;
+using Serilog;
+using System.Diagnostics;
 using System.Reflection;
-using System.Linq;
+using System.Security.Principal;
 
 namespace FelixLeander.WindowsServiceInstaller.Business;
 
@@ -101,12 +100,11 @@ internal static class Helper
             {
                 configValues.Insert(0, fileName);
                 var optinos = string.Join(Environment.NewLine, configValues.Select((s, i) => $"({i}) {s}").ToArray());
-                Log.Verbose("Select an option from your list, or enter for inital empty name:{newLine}{selection}", Environment.NewLine, optinos);
+                Log.Verbose("Select an option from your list, or enter for empty name:{newLine}{selection}", Environment.NewLine, optinos);
 
                 var input = Console.ReadLine();
-                if (!string.IsNullOrWhiteSpace(input) && int.TryParse(input, out int selection))
-                    if (selection > -1 && selection < configValues.Count)
-                        selectedName = configValues[selection];
+                if (!string.IsNullOrWhiteSpace(input) && int.TryParse(input, out int selection) && selection > -1 && selection < configValues.Count)
+                    selectedName = configValues[selection];
             }
 
             if (PromptForValue(arguments.DisplayName, nameof(Arguments.DisplayName), selectedName) is not { } displayName)

@@ -1,7 +1,7 @@
 ﻿using CliWrap;
-using Serilog;
 using CliWrap.Buffered;
 using FelixLeander.WindowsServiceInstaller.Enum;
+using Serilog;
 
 namespace FelixLeander.WindowsServiceInstaller.Business;
 internal static class ServiceHelper

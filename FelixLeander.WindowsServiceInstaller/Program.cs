@@ -1,9 +1,9 @@
-﻿using Serilog.Events;
-using Serilog;
-using CommandLine;
+﻿using CommandLine;
 using FelixLeander.WindowsServiceInstaller.Business;
 using FelixLeander.WindowsServiceInstaller.Enum;
 using FelixLeander.WindowsServiceInstaller.Model;
+using Serilog;
+using Serilog.Events;
 
 try
 {
