@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.12.35707.178
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServiceInstaller", "ServiceInstaller\ServiceInstaller.csproj", "{039127A6-BBD3-42BE-8828-CB3D4BB5A5A7}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FelixLeander.WindowsServiceInstaller", "ServiceInstaller\FelixLeander.WindowsServiceInstaller.csproj", "{039127A6-BBD3-42BE-8828-CB3D4BB5A5A7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

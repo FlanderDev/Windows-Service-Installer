@@ -1,9 +1,9 @@
 ﻿using Serilog.Events;
 using Serilog;
 using CommandLine;
-using ServiceInstaller.Business;
-using ServiceInstaller.Enum;
-using ServiceInstaller.Model;
+using FelixLeander.WindowsServiceInstaller.Business;
+using FelixLeander.WindowsServiceInstaller.Enum;
+using FelixLeander.WindowsServiceInstaller.Model;
 
 try
 {
@@ -48,6 +48,9 @@ try
 
     if (process != null)
     {
+        process.OutputDataReceived += (s, e) => Log.Verbose(e.Data ?? "[OUTPUT_STREAM]");
+        process.ErrorDataReceived += (s, e) => Log.Verbose(e.Data ?? "[ERROR_STREAM]");
+
         Log.Verbose("Waiting for child process to finish...");
         await process.WaitForExitAsync();
 

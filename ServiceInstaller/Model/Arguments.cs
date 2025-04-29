@@ -1,7 +1,7 @@
 ﻿using CommandLine;
-using ServiceInstaller.Enum;
+using FelixLeander.WindowsServiceInstaller.Enum;
 
-namespace ServiceInstaller.Model;
+namespace FelixLeander.WindowsServiceInstaller.Model;
 internal sealed class Arguments
 {
     [Option('s', nameof(ServiceName), Required = false, HelpText = "The actual name (used by the system) for the service.")]

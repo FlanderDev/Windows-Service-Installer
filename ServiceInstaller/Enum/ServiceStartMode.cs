@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ServiceInstaller.Enum;
+namespace FelixLeander.WindowsServiceInstaller.Enum;
 
 /// <summary>
 /// The values for the start mode for the service.

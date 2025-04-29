@@ -1,33 +1,42 @@
 ﻿using CliWrap;
 using Serilog;
 using CliWrap.Buffered;
-using ServiceInstaller.Enum;
+using FelixLeander.WindowsServiceInstaller.Enum;
 
-namespace ServiceInstaller.Business;
+namespace FelixLeander.WindowsServiceInstaller.Business;
 internal static class ServiceHelper
 {
-    internal static async Task InstallAsync(string serviceDisplayName, string serviceName, string serviceExecutable, string description, ServiceStartMode serviceStartMode)
+    internal static async Task<bool> InstallAsync(string serviceDisplayName, string serviceName, string serviceExecutable, string description, ServiceStartMode serviceStartMode)
     {
-        Log.Verbose("Installing service...");
+        try
+        {
+            Log.Verbose("Installing service...");
 
-        var resultInstall = await Cli
-        .Wrap("sc")
-        .WithArguments([
-            "create",
+            var resultInstall = await Cli
+            .Wrap("sc")
+            .WithArguments([
+                "create",
             serviceName,
             $"DisplayName={serviceDisplayName}",
             $"binPath={serviceExecutable}",
             $"start={serviceStartMode}"
-        ])
-        .ExecuteAsync();
+            ])
+            .ExecuteAsync();
 
-        if (!resultInstall.IsSuccess)
-        {
-            Log.Warning("Could not install service '{serviceDisplayName}'. SC-ExitCode: {code}", serviceDisplayName, resultInstall.ExitCode);
-            throw new ApplicationException($"Unknown error while installing service '{serviceDisplayName}'. SC-ExitCode: {resultInstall.ExitCode}");
+            if (!resultInstall.IsSuccess)
+            {
+                Log.Warning("Could not install service '{displayName}' ({serviceName}). SC-ExitCode: {code}", serviceDisplayName, serviceName, resultInstall.ExitCode);
+                return false;
+            }
+
+            Log.Information("Sucessfully installed service: '{displayName}'.", serviceDisplayName);
+            return true;
         }
-
-        Log.Information("");
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error installing service.");
+            return false;
+        }
     }
 
     internal static async Task<bool> StartAsync(string serviceDisplayName, string serviceName)
@@ -39,7 +48,7 @@ internal static class ServiceHelper
 
         if (!resultStart.IsSuccess)
         {
-            Log.Warning("Could not START service '{serviceDisplayName}'. SC-ExitCode: {code}", serviceDisplayName, resultStart.ExitCode);
+            Log.Warning("Could not START service '{displayName}' ({serviceName}). SC-ExitCode: {code}", serviceDisplayName, serviceName, resultStart.ExitCode);
             return resultStart.IsSuccess;
         }
 
@@ -49,19 +58,27 @@ internal static class ServiceHelper
 
     internal static async Task<bool> SetDescriptionAsync(string serviceName, string description)
     {
-        var resultStart = await Cli
+        try
+        {
+            var resultStart = await Cli
             .Wrap("sc")
-            .WithArguments(["description ", serviceName])
+            .WithArguments(["description", serviceName])
             .ExecuteAsync();
 
-        if (!resultStart.IsSuccess)
-        {
-            Log.Warning("Could not add DESCRIPTION to service '{serviceName}'. SC-ExitCode: {code}", serviceName, resultStart.ExitCode);
+            if (!resultStart.IsSuccess)
+            {
+                Log.Warning("Could not add DESCRIPTION to service '{serviceName}'. SC-ExitCode: {code}", serviceName, resultStart.ExitCode);
+                return resultStart.IsSuccess;
+            }
+
+            Log.Information("Description added to service '{serviceName}'.", serviceName);
             return resultStart.IsSuccess;
         }
-
-        Log.Information("Description added to service '{serviceName}'.", serviceName);
-        return resultStart.IsSuccess;
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error setting description.");
+            return false;
+        }
     }
 
     internal static async Task<bool> UninstallAsync(string serviceDisplayName, string serviceName)

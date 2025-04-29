@@ -1,11 +1,13 @@
 ﻿using Serilog;
 using System.Diagnostics;
 using System.Security.Principal;
-using ServiceInstaller.Model;
-using ServiceInstaller.Enum;
-using System;
+using FelixLeander.WindowsServiceInstaller.Model;
+using FelixLeander.WindowsServiceInstaller.Enum;
+using Microsoft.Extensions.Configuration;
+using System.Reflection;
+using System.Linq;
 
-namespace ServiceInstaller.Business;
+namespace FelixLeander.WindowsServiceInstaller.Business;
 
 internal static class Helper
 {
@@ -45,12 +47,14 @@ internal static class Helper
             process = Process.Start(new ProcessStartInfo
             {
                 FileName = thisFile.FileName,
-                UseShellExecute = true,
+                UseShellExecute = false,
                 Verb = "runas",
-                Arguments = arguments
+                Arguments = arguments,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
             });
 
-            return true;
+            return process != null;
         }
         catch (Exception ex)
         {
@@ -69,7 +73,7 @@ internal static class Helper
     {
         if (arguments.Operation == Operation.None)
         {
-            Log.Verbose("Do you want to install or uninstall a service?{newline}{selection}",
+            Log.Verbose("Do you want to install or uninstall a service?:{newLine}{selection}",
                 Environment.NewLine,
                 string.Join(Environment.NewLine, "(1) Install", "(2) Uninstall"));
 
@@ -89,9 +93,23 @@ internal static class Helper
                 return false;
             }
             arguments.FilePath = filePath;
-            var fileName = Path.GetFileNameWithoutExtension(arguments.FilePath);
 
-            if (PromptForValue(arguments.DisplayName, nameof(Arguments.DisplayName), $"EMP.Service.{fileName}") is not { } displayName)
+            var fileName = Path.GetFileNameWithoutExtension(arguments.FilePath);
+            var configValues = GetPrefixNamesFromConfig();
+            string? selectedName = null;
+            if (configValues != null)
+            {
+                configValues.Insert(0, fileName);
+                var optinos = string.Join(Environment.NewLine, configValues.Select((s, i) => $"({i}) {s}").ToArray());
+                Log.Verbose("Select an option from your list, or enter for inital empty name:{newLine}{selection}", Environment.NewLine, optinos);
+
+                var input = Console.ReadLine();
+                if (!string.IsNullOrWhiteSpace(input) && int.TryParse(input, out int selection))
+                    if (selection > -1 && selection < configValues.Count)
+                        selectedName = configValues[selection];
+            }
+
+            if (PromptForValue(arguments.DisplayName, nameof(Arguments.DisplayName), selectedName) is not { } displayName)
             {
                 exitCode = 304;
                 return false;
@@ -184,7 +202,7 @@ internal static class Helper
 
                 case ConsoleKey.Enter:
                     Console.WriteLine();
-                    return new string(chars.ToArray());
+                    return new string([.. chars]);
             }
         }
 
@@ -195,4 +213,14 @@ internal static class Helper
             Console.CursorLeft = pos;
         }
     }
+
+    private static List<string>? GetPrefixNamesFromConfig() =>
+        [.. new ConfigurationBuilder()
+        .AddJsonFile("appsettings.json", true)
+        .AddEnvironmentVariables(nameof(WindowsServiceInstaller))
+        .AddUserSecrets(Assembly.GetExecutingAssembly(), true)
+        .Build()
+        .AsEnumerable()
+        .Select(s => s.Value!)
+        .Where(w => !string.IsNullOrWhiteSpace(w))];
 }

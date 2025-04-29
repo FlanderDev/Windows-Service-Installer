@@ -1,4 +1,4 @@
-﻿namespace ServiceInstaller.Enum;
+﻿namespace FelixLeander.WindowsServiceInstaller.Enum;
 
 public enum Operation
 {
