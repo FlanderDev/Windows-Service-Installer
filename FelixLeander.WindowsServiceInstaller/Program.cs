@@ -5,6 +5,9 @@ using FelixLeander.WindowsServiceInstaller.Model;
 using Serilog;
 using Serilog.Events;
 
+// NOTE:
+// The program restarts itself once the arguments have been filled in to request admin permissions.
+// The following code will be executed as administrator.
 try
 {
     #region Setup
@@ -49,7 +52,7 @@ try
     if (process != null)
     {
         process.OutputDataReceived += (s, e) => Log.Verbose(e.Data ?? "[OUTPUT_STREAM]");
-        process.ErrorDataReceived += (s, e) => Log.Verbose(e.Data ?? "[ERROR_STREAM]");
+        process.ErrorDataReceived += (s, e) => Log.Warning(e.Data ?? "[ERROR_STREAM]");
 
         Log.Verbose("Waiting for child process to finish...");
         await process.WaitForExitAsync();
@@ -64,19 +67,19 @@ try
     }
     // Starting here the application has admin rights!
 
+    var serviceManager = new ServiceManager(arg.ServiceName, arg.DisplayName);
     if (Operation.Install == arg.Operation)
     {
-        await ServiceHelper.InstallAsync(arg.DisplayName, arg.ServiceName, arg.FilePath, arg.Description, ServiceStartMode.Auto);
-        await ServiceHelper.SetDescriptionAsync(arg.ServiceName, arg.Description);
-        await ServiceHelper.StartAsync(arg.DisplayName, arg.ServiceName);
+        await serviceManager.InstallAsync(arg.Description, ServiceStartMode.Auto);
+        await serviceManager.SetDescriptionAsync(arg.Description);
+        await serviceManager.StartAsync();
     }
     else if (Operation.Uninstall == arg.Operation)
-        await ServiceHelper.UninstallAsync(arg.DisplayName, arg.ServiceName);
+        await serviceManager.UninstallAsync();
     else
         Log.Verbose("Unsupported operation.");
 
     Log.Verbose("End of application.");
-    await Task.Delay(3000);
     return 0;
 }
 catch (Exception ex)

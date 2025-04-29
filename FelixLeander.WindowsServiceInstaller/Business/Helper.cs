@@ -8,8 +8,15 @@ using System.Security.Principal;
 
 namespace FelixLeander.WindowsServiceInstaller.Business;
 
+/// <summary>
+/// A class containg helpful methods.
+/// </summary>
 internal static class Helper
 {
+    /// <summary>
+    /// Staticlly logs the member names and values of <see cref="Arguments"/>.
+    /// </summary>
+    /// <param name="arg">The instance of which to log the members.</param>
     internal static void LogArgumentValues(Arguments arg)
     {
         Log.Information("The following arguments have been provided:");
@@ -20,6 +27,12 @@ internal static class Helper
         Log.Information("'{name}' is set to '{value}'.", nameof(Arguments.Operation), arg.Operation);
     }
 
+    /// <summary>
+    /// Starts a second instance of the current processes, as administrator, by prompting the user.
+    /// </summary>
+    /// <param name="arguments">The arguments to start the new process.</param>
+    /// <param name="process">The process which will be creates or <see langword="null"/> if no process could be created.</param>
+    /// <returns>A <see cref="bool"/> indicating execution occurred as intendet in normal operation.</returns>
     internal static bool StartChildProcessAsAdmin(string arguments, out Process? process)
     {
         process = null;
@@ -94,9 +107,9 @@ internal static class Helper
             arguments.FilePath = filePath;
 
             var fileName = Path.GetFileNameWithoutExtension(arguments.FilePath);
+            string? selectedName = fileName;
             var configValues = GetPrefixNamesFromConfig();
-            string? selectedName = null;
-            if (configValues != null)
+            if (configValues.Count != 0)
             {
                 configValues.Insert(0, fileName);
                 var optinos = string.Join(Environment.NewLine, configValues.Select((s, i) => $"({i}) {s}").ToArray());
@@ -143,6 +156,14 @@ internal static class Helper
         return true;
     }
 
+    /// <summary>
+    /// Prompts for input if <paramref name="value"/> is empty, displaying <paramref name="valueName"/>.
+    /// If <paramref name="recommendation"/> is filled, it's value is presented and can be edited to be the input.
+    /// </summary>
+    /// <param name="value">The value which will be checked for valdiation.</param>
+    /// <param name="valueName">The value dispalyed, asking to filled.</param>
+    /// <param name="recommendation">A recommanded value, the user can edit.</param>
+    /// <returns>The <see cref="string"/> the user inputed, or <see langword="null"/> if it is whitespace.</returns>
     private static string? PromptForValue(string value, string valueName, string? recommendation = null)
     {
         if (!string.IsNullOrWhiteSpace(value))
@@ -158,6 +179,11 @@ internal static class Helper
         return null;
     }
 
+    /// <summary>
+    /// A method providing single line console based editing.
+    /// </summary>
+    /// <param name="preText">The text which can be edited.</param>
+    /// <returns>The text which the user has entered.</returns>
     private static string ReadLine(string preText)
     {
         Console.Write(preText);
@@ -204,7 +230,7 @@ internal static class Helper
             }
         }
 
-        void PrintRight()
+        void PrintRight() //Prints the right side of the cursor and a spcae, to overwrite any leftover character.
         {
             var pos = Console.CursorLeft;
             Console.Write([.. chars[pos..], ' ']);
@@ -212,7 +238,11 @@ internal static class Helper
         }
     }
 
-    private static List<string>? GetPrefixNamesFromConfig() =>
+    /// <summary>
+    /// Gets the user defined values from <see cref="IConfigurationRoot"/>.
+    /// </summary>
+    /// <returns>The user defined <see cref="string"/>s from different providers.</returns>
+    private static List<string> GetPrefixNamesFromConfig() =>
         [.. new ConfigurationBuilder()
         .AddJsonFile("appsettings.json", true)
         .AddEnvironmentVariables(nameof(WindowsServiceInstaller))

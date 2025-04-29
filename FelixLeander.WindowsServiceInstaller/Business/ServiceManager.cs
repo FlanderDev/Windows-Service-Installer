@@ -4,9 +4,21 @@ using FelixLeander.WindowsServiceInstaller.Enum;
 using Serilog;
 
 namespace FelixLeander.WindowsServiceInstaller.Business;
-internal static class ServiceHelper
+
+/// <summary>
+/// A class managing interaction with a service.
+/// </summary>
+/// <param name="serviceName">The specific name of the service.</param>
+/// <param name="serviceDisplayName">The (optinal) dispaly name of the service, if not defined uses the <paramref name="serviceName"/> instead.</param>
+internal sealed class ServiceManager(string serviceName, string? serviceDisplayName = null)
 {
-    internal static async Task<bool> InstallAsync(string serviceDisplayName, string serviceName, string serviceExecutable, string description, ServiceStartMode serviceStartMode)
+    /// <summary>
+    /// Installs the service.
+    /// </summary>
+    /// <param name="serviceExecutable">The path of the executable, which will be executed as the service.</param>
+    /// <param name="serviceStartMode">The start mode of the service.</param>
+    /// <returns>Indication if the installtion succeeded.</returns>
+    internal async Task<bool> InstallAsync(string serviceExecutable, ServiceStartMode serviceStartMode)
     {
         try
         {
@@ -16,20 +28,20 @@ internal static class ServiceHelper
             .Wrap("sc")
             .WithArguments([
                 "create",
-            serviceName,
-            $"DisplayName={serviceDisplayName}",
-            $"binPath={serviceExecutable}",
-            $"start={serviceStartMode}"
+                serviceName,
+                $"DisplayName={serviceDisplayName ?? serviceName}",
+                $"binPath={serviceExecutable}",
+                $"start={serviceStartMode}"
             ])
             .ExecuteAsync();
 
             if (!resultInstall.IsSuccess)
             {
-                Log.Warning("Could not install service '{displayName}' ({serviceName}). SC-ExitCode: {code}", serviceDisplayName, serviceName, resultInstall.ExitCode);
+                Log.Warning("Could not install service '{displayName}' ({serviceName}). SC-ExitCode: {code}", serviceDisplayName ?? serviceName, serviceName, resultInstall.ExitCode);
                 return false;
             }
 
-            Log.Information("Sucessfully installed service: '{displayName}'.", serviceDisplayName);
+            Log.Information("Sucessfully installed service: '{displayName}'.", serviceDisplayName ?? serviceName);
             return true;
         }
         catch (Exception ex)
@@ -39,7 +51,11 @@ internal static class ServiceHelper
         }
     }
 
-    internal static async Task<bool> StartAsync(string serviceDisplayName, string serviceName)
+    /// <summary>
+    /// Starts the service.
+    /// </summary>
+    /// <returns>Indiacting sucess or failure.</returns>
+    internal async Task<bool> StartAsync()
     {
         var resultStart = await Cli
             .Wrap("sc")
@@ -56,13 +72,18 @@ internal static class ServiceHelper
         return resultStart.IsSuccess;
     }
 
-    internal static async Task<bool> SetDescriptionAsync(string serviceName, string description)
+    /// <summary>
+    /// Sets the description of the service to <paramref name="description"/>.
+    /// </summary>
+    /// <param name="description">The descirption for the service.</param>
+    /// <returns>Indiacting sucess or failure.</returns>
+    internal async Task<bool> SetDescriptionAsync(string description)
     {
         try
         {
             var resultStart = await Cli
             .Wrap("sc")
-            .WithArguments(["description", serviceName])
+            .WithArguments(["description", serviceName, description])
             .ExecuteAsync();
 
             if (!resultStart.IsSuccess)
@@ -81,7 +102,11 @@ internal static class ServiceHelper
         }
     }
 
-    internal static async Task<bool> UninstallAsync(string serviceDisplayName, string serviceName)
+    /// <summary>
+    /// Uninstalls the service (stops it if it is running).
+    /// </summary>
+    /// <returns>Indiacting sucess or failure.</returns>
+    internal async Task<bool> UninstallAsync()
     {
         try
         {
@@ -125,7 +150,7 @@ internal static class ServiceHelper
             {
                 Log.Warning($"Service {serviceDisplayName} STATE is invalid. Cannot stop/uninstall it.");
                 return false;
-            } // TODO: Give more information on specific cases.
+            } // Might wanna add more information for specific cases.
 
 
             var resultDelete =

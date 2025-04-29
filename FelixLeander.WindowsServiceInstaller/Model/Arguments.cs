@@ -2,6 +2,10 @@
 using FelixLeander.WindowsServiceInstaller.Enum;
 
 namespace FelixLeander.WindowsServiceInstaller.Model;
+
+/// <summary>
+/// The argumetns for this class
+/// </summary>
 internal sealed class Arguments
 {
     [Option('s', nameof(ServiceName), Required = false, HelpText = "The actual name (used by the system) for the service.")]

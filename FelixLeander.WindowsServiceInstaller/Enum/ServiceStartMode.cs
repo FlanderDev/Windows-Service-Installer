@@ -5,9 +5,9 @@
 /// </summary>
 public enum ServiceStartMode
 {
-    Boot = 0,
-    System = 1,
-    Auto = 2,
-    Demand = 3,
-    Disabled = 4,
+    Boot,
+    System,
+    Auto,
+    Demand,
+    Disabled
 }
