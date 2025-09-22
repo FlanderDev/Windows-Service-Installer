@@ -70,7 +70,7 @@ try
     var serviceManager = new ServiceManager(arg.ServiceName, arg.DisplayName);
     if (Operation.Install == arg.Operation)
     {
-        await serviceManager.InstallAsync(arg.Description, ServiceStartMode.Auto);
+        await serviceManager.InstallAsync(arg.FilePath, ServiceStartMode.Auto);
         await serviceManager.SetDescriptionAsync(arg.Description);
         await serviceManager.StartAsync();
     }
